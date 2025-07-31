@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT Message Pruner",
+  "description": "Automatically prunes old ChatGPT messages to keep the interface fast and responsive.",
+  "version": "1.0",
+  "permissions": ["scripting", "storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon28.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://chatgpt.com/*", "*://chat.openai.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
