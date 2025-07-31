@@ -18,7 +18,7 @@ Since ChatGPT still stores the full conversation history, you can still disable 
 
 ## Installation
 
-You can install the extension by first downloading the `.crx` file from the [Releases]() page, and then dragging it into the Chrome extensions page [chrome://extensions/](chrome://extensions/).
+You can install the extension by first downloading the `.crx` file from the [Releases](https://github.com/sortedcord/gippity-pruner/releases/tag/v1.0.0.0) page, and then dragging it into the Chrome extensions page [chrome://extensions/](chrome://extensions/).
 
 Make sure to enable "Developer mode" in the top right corner of the extensions page.
 
