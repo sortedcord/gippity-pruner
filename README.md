@@ -14,7 +14,9 @@ ChatGPT tends to get really slow and unresponsive in long conversations. This ex
 
 Since ChatGPT still stores the full conversation history, you can still disable the extension and see all your messages, and also get the full context in your responses.
 
-[![Watch the video](https://img.youtube.com/vi/EpX9YoTcZUQ/0.jpg)](https://www.youtube.com/watch?v=EpX9YoTcZUQ)
+Here's a quick video showing how to install and use the extension:
+
+[![Watch the video](assets/yt_thumb.png)](https://www.youtube.com/watch?v=EpX9YoTcZUQ)
 
 ---
 
