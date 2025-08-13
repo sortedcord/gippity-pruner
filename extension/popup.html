@@ -1,20 +1,48 @@
 <!doctype html>
 <html>
   <head>
-    <title>ChatGPT Pruner</title>
+    <title>Gippity Pruner</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h3>ChatGPT Pruner</h3>
-    <h4 id="chatTitle"></h4>
-    <label>
-      <input type="checkbox" id="toggleEnabled" />
-      Enable Pruning
-    </label>
-    <br />
-    <label>
-      Keep last <input type="number" id="keepLast" min="1" value="5" /> messages
-    </label>
+    <h3>Gippity Pruner</h3>
+
+    <div class="setting-group">
+      <label>
+        <input type="checkbox" id="toggleEnabled" />
+        Enable Pruning
+      </label>
+    </div>
+
+    <hr />
+
+    <h4>Global Default</h4>
+    <div class="setting-group">
+      <label>
+        Keep last
+        <input type="number" id="globalKeepLast" min="1" value="5" /> messages.
+      </label>
+    </div>
+
+    <hr />
+
+    <h4>Current Chat</h4>
+    <div id="chatSpecificSettings" class="setting-group" style="display: none">
+      <p id="chatTitle">Loading chat...</p>
+      <label>
+        <input type="checkbox" id="useGlobal" />
+        Use global setting for this chat
+      </label>
+      <br />
+      <label id="chatKeepLastLabel">
+        Keep last
+        <input type="number" id="chatKeepLast" min="1" value="5" /> messages.
+      </label>
+    </div>
+    <div id="notOnChatPage">
+      <p>Navigate to a chat page to configure its specific settings.</p>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>
