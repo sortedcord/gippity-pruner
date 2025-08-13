@@ -3,7 +3,7 @@
   "name": "ChatGPT Message Pruner",
   "description": "Automatically prunes old ChatGPT messages to keep the interface fast and responsive.",
   "version": "1.0",
-  "permissions": ["scripting", "storage"],
+  "permissions": ["scripting", "storage", "tabs"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

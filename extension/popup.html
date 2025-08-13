@@ -1,19 +1,20 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>ChatGPT Pruner</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <h3>ChatGPT Pruner</h3>
-  <label>
-    <input type="checkbox" id="toggleEnabled" />
-    Enable Pruning
-  </label>
-  <br />
-  <label>
-    Keep last <input type="number" id="keepLast" min="1" value="5" /> messages
-  </label>
-  <script src="popup.js"></script>
-</body>
+  <head>
+    <title>ChatGPT Pruner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <h3>ChatGPT Pruner</h3>
+    <h4 id="chatTitle"></h4>
+    <label>
+      <input type="checkbox" id="toggleEnabled" />
+      Enable Pruning
+    </label>
+    <br />
+    <label>
+      Keep last <input type="number" id="keepLast" min="1" value="5" /> messages
+    </label>
+    <script src="popup.js"></script>
+  </body>
 </html>
