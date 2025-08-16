@@ -67,3 +67,10 @@ hr {
   font-style: italic;
   margin-top: 10px;
 }
+
+/* --- NEW --- */
+#chatSpecificControls {
+  padding-left: 10px;
+  margin-top: 10px;
+  border-left: 2px solid #f0f0f0;
+}

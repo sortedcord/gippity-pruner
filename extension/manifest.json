@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Message Pruner",
+  "name": "Gippity Pruner",
   "description": "Automatically prunes old ChatGPT messages to keep the interface fast and responsive.",
-  "version": "1.0",
+  "version": "1.4",
   "permissions": ["scripting", "storage", "tabs"],
   "action": {
     "default_popup": "popup.html",

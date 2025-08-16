@@ -33,11 +33,17 @@
         <input type="checkbox" id="useGlobal" />
         Use global setting for this chat
       </label>
-      <br />
-      <label id="chatKeepLastLabel">
-        Keep last
-        <input type="number" id="chatKeepLast" min="1" value="5" /> messages.
-      </label>
+
+      <div id="chatSpecificControls">
+        <label>
+          <input type="checkbox" id="chatEnabled" />
+          Enable pruning for this chat
+        </label>
+        <label id="chatKeepLastLabel">
+          Keep last
+          <input type="number" id="chatKeepLast" min="1" value="5" /> messages.
+        </label>
+      </div>
     </div>
     <div id="notOnChatPage">
       <p>Navigate to a chat page to configure its specific settings.</p>
