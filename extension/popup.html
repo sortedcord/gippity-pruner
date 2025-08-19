@@ -1,26 +1,25 @@
 <!doctype html>
 <html>
   <head>
+    <meta charset="utf-8" />
     <title>Gippity Pruner</title>
-    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="styles.css" rel="stylesheet" />
   </head>
   <body>
-    <h3>Gippity Pruner</h3>
-
+    <!-- Global Controls -->
     <div class="setting-group">
       <label>
         <input type="checkbox" id="toggleEnabled" />
-        Enable Pruning
+        Enable Gippity Pruner
       </label>
     </div>
 
-    <hr />
-
-    <h4>Global Default</h4>
     <div class="setting-group">
       <label>
         Keep last
-        <input type="number" id="globalKeepLast" min="1" value="5" /> messages.
+        <input type="number" id="globalKeepLast" min="1" value="5" />
+        messages.
       </label>
     </div>
 
@@ -35,20 +34,29 @@
       </label>
 
       <div id="chatSpecificControls">
-        <label>
-          <input type="checkbox" id="chatEnabled" />
-          Enable pruning for this chat
-        </label>
-        <label id="chatKeepLastLabel">
-          Keep last
-          <input type="number" id="chatKeepLast" min="1" value="5" /> messages.
-        </label>
+        <div class="setting-group">
+          <label>
+            <input type="checkbox" id="chatEnabled" />
+            Enable for this chat
+          </label>
+        </div>
+
+        <div class="setting-group">
+          <label id="chatKeepLastLabel">
+            Keep last
+            <input type="number" id="chatKeepLast" min="1" value="5" />
+            messages for this chat.
+          </label>
+        </div>
       </div>
     </div>
-    <div id="notOnChatPage">
-      <p>Navigate to a chat page to configure its specific settings.</p>
+
+    <div id="notOnChatPage" class="setting-group" style="display: none">
+      <p>Open a ChatGPT conversation to configure chat-specific settings.</p>
     </div>
 
-    <script src="popup.js"></script>
+    <!-- IMPORTANT: load polyfill before popup.js -->
+    <script src="popup.js" defer></script>
+
   </body>
 </html>

@@ -1,0 +1,22 @@
+{
+  "name": "gippity-pruner",
+  "private": true,
+    "scripts": {
+    "clean": "rm -rf dist && mkdir -p dist/chrome dist/firefox dist/artifacts/chrome dist/artifacts/firefox",
+
+    "prep:chrome": "rsync -a extension/ dist/chrome/ --exclude 'manifest-firefox.json' && cp -f extension/manifest-chrome.json dist/chrome/manifest.json",
+    "prep:firefox": "rsync -a extension/ dist/firefox/ --exclude 'manifest-chrome.json' && cp -f extension/manifest-firefox.json dist/firefox/manifest.json",
+
+    "build:chrome": "npm run prep:chrome && npx --yes web-ext build --source-dir dist/chrome --artifacts-dir dist/artifacts/chrome --overwrite-dest",
+    "build:firefox": "npm run prep:firefox && npx --yes web-ext build --source-dir dist/firefox --artifacts-dir dist/artifacts/firefox --overwrite-dest",
+
+    "build:all": "npm run clean && npm run build:chrome && npm run build:firefox",
+
+    "run:firefox": "npm run prep:firefox && npx --yes web-ext run --source-dir dist/firefox",
+    "lint:firefox": "npm run prep:firefox && npx --yes web-ext lint --source-dir dist/firefox || true"
+  },
+  "devDependencies": {
+    "web-ext": "^7.12.0",
+    "webextension-polyfill": "^0.12.0"
+  }
+}
