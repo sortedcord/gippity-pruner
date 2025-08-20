@@ -3,12 +3,12 @@
 <!-- Center align image -->
 
 <p align="center">
-  <img src="extension/icons/icon28.png" alt="Gippity Pruner Icon" width="128" height="128">
+  <img src="extension/icons/icon128.png" alt="Gippity Pruner Icon" width="128" height="128">
 </p>
 
 <h2 align="center">Fix ChatGPT in long conversations</h2>
 
-ChatGPT tends to get really slow and unresponsive in long conversations. This extension prunes the conversation history to keep it responsive. 
+ChatGPT tends to get really slow and unresponsive in long conversations. This extension prunes the conversation history to keep it responsive.
 
 **This extension does not delete any messages, it just hides them from the chat view.**
 

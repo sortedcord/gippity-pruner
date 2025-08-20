@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Gippity Pruner",
+  "name": "Gippity Pruner - fix long GPT chats",
   "description": "Improve ChatGPT performance in long conversations, without losing your context!",
-  "version": "1.6",
+  "version": "1.7",
   "permissions": ["scripting", "storage", "tabs"],
   "action": {
     "default_popup": "popup.html",
