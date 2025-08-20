@@ -4,7 +4,29 @@ let settings = {
   enabled: true,
   globalKeepLast: 5,
   chats: {},
+  pinnedMessages: [],
 };
+
+// Add this near the top with your other constants
+const PIN_BUTTON_STYLE = {
+  position: "absolute",
+  top: "-9px",
+  left: "-8px",
+  cursor: "pointer",
+  opacity: "0.5",
+  width: "24px",
+  height: "24px",
+  padding: "4px",
+  borderRadius: "4px",
+  zIndex: "10",
+};
+
+const PIN_ICON_SVG = `
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="scale(0.85) translate(2,2)">
+    <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+  </g>
+</svg>`;
 
 let currentUrl = location.href;
 let initializationInterval; // Used to find the chat messages on load/navigation
@@ -19,6 +41,110 @@ const MESSAGE_SELECTOR = "article[data-turn-id]";
 const FALLBACK_SELECTOR = 'article[data-testid^="conversation-turn-"]';
 
 // --- Core Functions ---
+
+function addPinButton(messageElement) {
+  const isAssistantMessage =
+    messageElement.querySelector(
+      'div[data-message-author-role="assistant"]',
+    ) !== null;
+  let targetContainer;
+  let isActionButton = false; // Flag to check if we're adding to the action bar
+
+  if (isAssistantMessage) {
+    // For assistant messages, find the action button bar.
+    // We can reliably find it by looking for the parent of the copy button.
+    const copyButton = messageElement.querySelector(
+      'button[data-testid="copy-turn-action-button"]',
+    );
+    targetContainer = copyButton?.parentElement;
+    isActionButton = true;
+  } else {
+    // For user messages, find the chat bubble.
+    targetContainer = messageElement.querySelector(
+      ".user-message-bubble-color",
+    );
+  }
+
+  if (
+    !targetContainer ||
+    targetContainer.querySelector(".gippity-pin-button")
+  ) {
+    return; // No container found, or button already exists
+  }
+
+  const button = document.createElement("button"); // Use a button for accessibility
+  button.className = "gippity-pin-button";
+  button.innerHTML = PIN_ICON_SVG;
+
+  if (isActionButton) {
+    // Style for the action bar
+    Object.assign(button.style, {
+      width: "24px",
+      color: "var(--text-secondary)",
+      height: "24px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    });
+    button.onmouseover = () =>
+      (button.style.backgroundColor = "var(--bg-secondary)");
+    button.onmouseout = () => (button.style.backgroundColor = "transparent");
+  } else {
+    // Style for the user bubble (absolute positioning)
+    Object.assign(button.style, PIN_BUTTON_STYLE);
+    targetContainer.style.position = "relative"; // Ensure positioning context
+  }
+
+  const turnId = messageElement.getAttribute("data-turn-id");
+  if (settings.pinnedMessages && settings.pinnedMessages.includes(turnId)) {
+    messageElement.dataset.isPinned = "true";
+    button.style.color = "#3C82F6"; // Pinned color
+  }
+
+  button.onclick = (e) => {
+    e.stopPropagation();
+    togglePin(messageElement); // Pass the main <article> to the toggle function
+  };
+
+  if (isActionButton) {
+    // Add to the start of the action button list
+    targetContainer.prepend(button);
+  } else {
+    // Add to the user's chat bubble
+    targetContainer.appendChild(button);
+  }
+}
+
+function togglePin(messageElement) {
+  const turnId = messageElement.getAttribute("data-turn-id");
+  if (!turnId) return;
+
+  const isPinned = messageElement.dataset.isPinned === "true";
+  const pinButton = messageElement.querySelector(".gippity-pin-button");
+
+  if (isPinned) {
+    // Unpin it
+    messageElement.dataset.isPinned = "false";
+    settings.pinnedMessages = settings.pinnedMessages.filter(
+      (id) => id !== turnId,
+    );
+    pinButton.style.opacity = "0.5";
+    pinButton.style.color = "currentColor";
+  } else {
+    // Pin it
+    messageElement.dataset.isPinned = "true";
+    if (!settings.pinnedMessages) settings.pinnedMessages = [];
+    settings.pinnedMessages.push(turnId);
+    pinButton.style.opacity = "1.0";
+    pinButton.style.color = "#3C82F6";
+  }
+
+  // Save the updated list of pinned messages
+  chrome.storage.sync.set({ pinnedMessages: settings.pinnedMessages });
+
+  // Re-run pruning immediately to reflect the change
+  pruneMessages();
+}
 
 function getChatIdFromUrl(url) {
   const match = url.match(/chat(?:gpt)?.com\/(?:c|chat)\/([a-zA-Z0-9-]+)/);
@@ -89,34 +215,48 @@ function createOrUpdateButton(hiddenCount, loadIncrement) {
   injectionContainer.prepend(loadMoreButton);
 }
 
+function ensurePinnedAreVisible() {
+  const pinnedIds = settings.pinnedMessages || [];
+  pinnedIds.forEach((id) => {
+    const el = document.querySelector(`article[data-turn-id="${id}"]`);
+    if (el) el.style.display = "";
+  });
+}
+
 function pruneMessages() {
+  ensurePinnedAreVisible();
   const keepLast = getKeepLastCount();
   if (keepLast === Infinity) {
     showAllMessages();
     return;
   }
 
-  let messages = document.querySelectorAll(
+  let allMessages = document.querySelectorAll(
     `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
   );
-  lastPrunedMessageCount = messages.length;
+  lastPrunedMessageCount = allMessages.length;
+
+  // Separate pinned messages from the ones that can be pruned
+  const unpinnableMessages = Array.from(allMessages).filter(
+    (msg) => msg.dataset.isPinned !== "true",
+  );
 
   const totalToShow = keepLast + additionallyShownCount;
 
-  messages.forEach((msg) => {
+  // make all unpinnable messages visible to calculate what to hide.
+  unpinnableMessages.forEach((msg) => {
     if (msg.style.display === "none") msg.style.display = "";
   });
 
-  if (messages.length <= totalToShow) {
+  if (unpinnableMessages.length <= totalToShow) {
     createOrUpdateButton(0, keepLast);
     return;
   }
 
-  const toHideCount = messages.length - totalToShow;
+  const toHideCount = unpinnableMessages.length - totalToShow;
   for (let i = 0; i < toHideCount; i++) {
-    if (messages[i]) messages[i].style.display = "none";
+    if (unpinnableMessages[i]) unpinnableMessages[i].style.display = "none";
   }
-  // The spammy console.log that was here has been removed.
   createOrUpdateButton(toHideCount, keepLast);
 }
 
@@ -134,9 +274,8 @@ function showAllMessages() {
 function observeMessages(chatContainer) {
   if (messageObserver) messageObserver.disconnect();
 
-  // Create the debounced function once.
+  // Create the debounced function that handles pruning.
   const debouncedPrune = debounce(() => {
-    // This internal function is what gets debounced.
     const currentMessageCount = document.querySelectorAll(
       `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
     ).length;
@@ -146,12 +285,20 @@ function observeMessages(chatContainer) {
     pruneMessages();
   }, 300);
 
-  // The observer's job is simple: just call the debounced function every time.
-  messageObserver = new MutationObserver(debouncedPrune);
+  // This observer will fire on any change in the chat container.
+  messageObserver = new MutationObserver(() => {
+    // 1. Ensure all messages, especially new ones, have a pin button.
+    document
+      .querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`)
+      .forEach(addPinButton);
+
+    // 2. Call the debounced function to handle pruning.
+    debouncedPrune();
+  });
 
   messageObserver.observe(chatContainer, { childList: true, subtree: true });
   console.log(
-    "[Gippity Pruner] Debounced observer attached to chat container.",
+    "[Gippity Pruner] Debounced observer with pinning logic attached.",
   );
 }
 
@@ -169,6 +316,12 @@ function initializePruner() {
     if (firstMessage) {
       clearInterval(initializationInterval);
       console.log("[Gippity Pruner] Chat messages detected. Initializing...");
+
+      // Add pin buttons to all existing messages on load
+      document
+        .querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`)
+        .forEach(addPinButton);
+
       setTimeout(() => {
         pruneMessages();
         const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
@@ -185,10 +338,13 @@ function initializePruner() {
 }
 
 // --- Event Listeners ---
-chrome.storage.sync.get(["enabled", "globalKeepLast", "chats"], (res) => {
-  settings = { ...settings, ...res };
-  initializePruner();
-});
+chrome.storage.sync.get(
+  ["enabled", "globalKeepLast", "chats", "pinnedMessages"],
+  (res) => {
+    settings = { ...settings, ...res };
+    initializePruner();
+  },
+);
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace !== "sync") return;
