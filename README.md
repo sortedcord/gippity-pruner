@@ -14,6 +14,10 @@ ChatGPT tends to get really slow and unresponsive in long conversations. This ex
 
 Since ChatGPT still stores the full conversation history, you can still disable the extension and see all your messages, and also get the full context in your responses.
 
+Download it from the Chrome Web Store (_Firefox version WIP_) :
+
+[![Chrome Web Store](https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png)](https://chromewebstore.google.com/detail/flcfolhcheneokpdnacnngfjmgccbfop?utm_source=item-share-cb)
+
 Here's a quick video showing how to install and use the extension:
 
 [![Watch the video](assets/yt_thumb.png)](https://www.youtube.com/watch?v=EpX9YoTcZUQ)
