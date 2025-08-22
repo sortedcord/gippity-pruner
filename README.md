@@ -20,7 +20,7 @@ Download it from the Chrome Web Store (_Firefox version WIP_) :
 
 Here's a quick video showing how to install and use the extension:
 
-[![Watch the video](assets/yt_thumb.png)](https://www.youtube.com/watch?v=EpX9YoTcZUQ)
+[![Watch the video](assets/yt_thumb.png)](https://youtu.be/JqrwuydtBX8)
 
 ---
 
