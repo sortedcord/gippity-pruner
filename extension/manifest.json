@@ -15,9 +15,13 @@
   "content_scripts": [
     {
       "matches": ["*://chatgpt.com/*", "*://chat.openai.com/*"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "js": ["browser-polyfill.js", "content.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gippity-pruner@adityagupta.dev"
+    }
+  }
 }

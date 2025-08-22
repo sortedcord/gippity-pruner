@@ -27,7 +27,6 @@ const PIN_ICON_SVG = `
   </g>
 </svg>`;
 
-
 let currentUrl = location.href;
 let initializationInterval; // Used to find the chat messages on load/navigation
 let messageObserver; // Holds the MutationObserver for an active chat
@@ -140,7 +139,7 @@ function togglePin(messageElement) {
   }
 
   // Save the updated list of pinned messages
-  chrome.storage.sync.set({ pinnedMessages: settings.pinnedMessages });
+  browser.storage.sync.set({ pinnedMessages: settings.pinnedMessages });
 
   // Re-run pruning immediately to reflect the change
   pruneMessages();
@@ -227,37 +226,37 @@ function pruneMessages() {
   ensurePinnedAreVisible();
   const keepLast = getKeepLastCount();
   if (keepLast === Infinity) {
-      showAllMessages();
-      return;
+    showAllMessages();
+    return;
   }
 
   let allMessages = document.querySelectorAll(
-      `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
+    `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
   );
   lastPrunedMessageCount = allMessages.length;
 
   const unpinnableMessages = Array.from(allMessages).filter(
-      (msg) => msg.dataset.isPinned !== "true",
+    (msg) => msg.dataset.isPinned !== "true",
   );
 
   const totalToShow = keepLast + additionallyShownCount;
 
   unpinnableMessages.forEach((msg) => {
-      if (msg.style.display === "none") msg.style.display = "";
+    if (msg.style.display === "none") msg.style.display = "";
   });
 
   if (unpinnableMessages.length <= totalToShow) {
-      createOrUpdateButton(0, keepLast);
-      requestAnimationFrame(revealChat);
-      return;
+    createOrUpdateButton(0, keepLast);
+    requestAnimationFrame(revealChat);
+    return;
   }
 
   const toHideCount = unpinnableMessages.length - totalToShow;
   for (let i = 0; i < toHideCount; i++) {
-      if (unpinnableMessages[i]) unpinnableMessages[i].style.display = "none";
+    if (unpinnableMessages[i]) unpinnableMessages[i].style.display = "none";
   }
   createOrUpdateButton(toHideCount, keepLast);
-  
+
   // Wait for the next repaint cycle to reveal the chat
   requestAnimationFrame(revealChat);
 }
@@ -315,24 +314,25 @@ function revealChat() {
   if (chatContainer) {
     chatContainer.classList.remove("gp-hidden-container");
   }
-
 }
 
 function initializePruner() {
   if (initializationInterval) clearInterval(initializationInterval);
   if (messageObserver) messageObserver.disconnect();
 
-  const spinner = document.createElement('div');
-  spinner.className = 'gp-loader';
+  const spinner = document.createElement("div");
+  spinner.className = "gp-loader";
 
-  const composerParent = document.querySelector('div[role="presentation"].composer-parent');
+  const composerParent = document.querySelector(
+    'div[role="presentation"].composer-parent',
+  );
   if (composerParent) {
-      composerParent.style.position = 'relative';
-      composerParent.appendChild(spinner);
-      const chatContainer = composerParent.querySelector('.overflow-y-auto');
-      if (chatContainer) {
-          chatContainer.classList.add('gp-hidden-container');
-      }
+    composerParent.style.position = "relative";
+    composerParent.appendChild(spinner);
+    const chatContainer = composerParent.querySelector(".overflow-y-auto");
+    if (chatContainer) {
+      chatContainer.classList.add("gp-hidden-container");
+    }
   }
 
   additionallyShownCount = 0;
@@ -344,46 +344,54 @@ function initializePruner() {
   const stabilityThreshold = 3;
 
   initializationInterval = setInterval(() => {
-      const currentMessages = document.querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`);
-      // Also check for the container inside the loop ---
-      const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
+    const currentMessages = document.querySelectorAll(
+      `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
+    );
+    // Also check for the container inside the loop ---
+    const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
 
-      // need both messages AND the container to be ready
-      if (currentMessages.length > 0 && chatContainer) {
-          if (currentMessages.length > messageCount) {
-              messageCount = currentMessages.length;
-              stableCount = 0;
-              console.log(`[Gippity Pruner] Loading messages... Found ${messageCount}`);
-          } else {
-              stableCount++;
-          }
+    // need both messages AND the container to be ready
+    if (currentMessages.length > 0 && chatContainer) {
+      if (currentMessages.length > messageCount) {
+        messageCount = currentMessages.length;
+        stableCount = 0;
+        console.log(
+          `[Gippity Pruner] Loading messages... Found ${messageCount}`,
+        );
+      } else {
+        stableCount++;
       }
+    }
 
-      if (stableCount >= stabilityThreshold) {
-          clearInterval(initializationInterval);
-          console.log(`[Gippity Pruner] Message loading complete with ${messageCount} messages. Initializing...`);
+    if (stableCount >= stabilityThreshold) {
+      clearInterval(initializationInterval);
+      console.log(
+        `[Gippity Pruner] Message loading complete with ${messageCount} messages. Initializing...`,
+      );
 
-          currentMessages.forEach(addPinButton);
+      currentMessages.forEach(addPinButton);
 
-          pruneMessages();
-          
-          // the container exists, so use it directly.
-          observeMessages(chatContainer);
-      }
+      pruneMessages();
+
+      // the container exists, so use it directly.
+      observeMessages(chatContainer);
+    }
   }, 200);
 }
 
-
 // --- Event Listeners ---
-chrome.storage.sync.get(
-  ["enabled", "globalKeepLast", "chats", "pinnedMessages"],
-  (res) => {
-    settings = { ...settings, ...res };
-    initializePruner();
-  },
-);
+async function loadSettingsAndInitialize() {
+  const res = await browser.storage.sync.get([
+    "enabled",
+    "globalKeepLast",
+    "chats",
+    "pinnedMessages",
+  ]);
+  settings = { ...settings, ...res };
+  initializePruner();
+}
 
-chrome.storage.onChanged.addListener((changes, namespace) => {
+browser.storage.onChanged.addListener((changes, namespace) => {
   if (namespace !== "sync") return;
   for (let key in changes) {
     settings[key] = changes[key].newValue;
@@ -393,16 +401,16 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   pruneMessages();
 });
 
-const navigationObserver = new MutationObserver(() => {
+new MutationObserver(() => {
   if (location.href !== currentUrl) {
-      currentUrl = location.href;
-      console.log(`[Gippity Pruner] Navigated to: ${currentUrl}. Re-initializing.`);
-      initializePruner();
+    currentUrl = location.href;
+    console.log(
+      `[Gippity Pruner] Navigated to: ${currentUrl}. Re-initializing.`,
+    );
+    initializePruner();
   }
-});
+}).observe(document.body, { childList: true, subtree: true });
 
-// Start observing the document body for changes
-navigationObserver.observe(document.body, {
-  childList: true,
-  subtree: true
-});
+// Start the extension
+loadSettingsAndInitialize();
+

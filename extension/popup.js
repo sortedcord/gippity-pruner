@@ -1,6 +1,8 @@
 /**
  * Manages the extension's popup UI and settings logic.
+ * uses async/await in event listeners to ensure storage operations complete.
  */
+
 document.addEventListener("DOMContentLoaded", () => {
   // UI Elements
   const toggleEnabled = document.getElementById("toggleEnabled");
@@ -17,7 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const notOnChatPageDiv = document.getElementById("notOnChatPage");
 
   let currentChatId = null;
-  let globalSettings = { enabled: true, keepLast: 5 };
 
   /**
    * Extracts the ChatGPT chat ID from a given URL.
@@ -25,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
    * @returns {string|null} The chat ID or null if not found.
    */
   function getChatIdFromUrl(url) {
+    if (!url) return null; // Add a check for undefined URL
     const match = url.match(/chat(?:gpt)?.com\/(?:c|chat)\/([a-zA-Z0-9-]+)/);
     return match ? match[1] : null;
   }
@@ -42,130 +44,139 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- Main Initialization ---
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs[0];
-    if (!tab || !tab.url) return;
+  async function initializePopup() {
+    try {
+      const tabs = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      const tab = tabs[0];
 
-    currentChatId = getChatIdFromUrl(tab.url);
+      if (!tab || !tab.url) {
+        // This handles cases where the tab isn't fully loaded or accessible
+        notOnChatPageDiv.style.display = "block";
+        chatSpecificSettingsDiv.style.display = "none";
+        return;
+      }
 
-    // Show the correct UI section based on whether we're on a chat page
-    if (currentChatId) {
-      chatTitleEl.textContent = tab.title || "Current Chat";
-      chatSpecificSettingsDiv.style.display = "block";
-      notOnChatPageDiv.style.display = "none";
-    } else {
-      chatSpecificSettingsDiv.style.display = "none";
-      notOnChatPageDiv.style.display = "block";
-    }
+      currentChatId = getChatIdFromUrl(tab.url);
 
-    // Load all settings from storage and update the UI
-    chrome.storage.sync.get(["enabled", "globalKeepLast", "chats"], (res) => {
-      globalSettings.enabled = res.enabled ?? true;
-      globalSettings.keepLast = res.globalKeepLast ?? 5;
+      // Fetch settings from storage with default values
+      const data = await browser.storage.sync.get({
+        enabled: true,
+        globalKeepLast: 5,
+        chats: {},
+      });
 
-      toggleEnabled.checked = globalSettings.enabled;
-      globalKeepLastInput.value = globalSettings.keepLast;
+      // Populate global settings
+      toggleEnabled.checked = data.enabled;
+      globalKeepLastInput.value = data.globalKeepLast;
 
+      // Determine which UI to show
       if (currentChatId) {
-        const chats = res.chats || {};
-        const chatSetting = chats[currentChatId];
+        chatTitleEl.textContent = tab.title || "Current Chat";
+        chatSpecificSettingsDiv.style.display = "block";
+        notOnChatPageDiv.style.display = "none";
+
+        const chatSetting = data.chats[currentChatId];
 
         if (chatSetting === undefined) {
-          // This chat uses the global setting
           useGlobalCheckbox.checked = true;
         } else {
-          // This chat has a specific setting
           useGlobalCheckbox.checked = false;
-          // Handle new object format and old number format
-          if (typeof chatSetting === 'object' && chatSetting !== null) {
+          if (typeof chatSetting === "object" && chatSetting !== null) {
             chatEnabledCheckbox.checked = chatSetting.enabled ?? true;
-            chatKeepLastInput.value = chatSetting.keepLast ?? globalSettings.keepLast;
-          } else { // Backward compatibility for number format
-            chatEnabledCheckbox.checked = true; // Assume enabled for old format
+            chatKeepLastInput.value =
+              chatSetting.keepLast ?? data.globalKeepLast;
+          } else {
+            // Backward compatibility for old number format
+            chatEnabledCheckbox.checked = true;
             chatKeepLastInput.value = chatSetting;
           }
         }
+      } else {
+        chatSpecificSettingsDiv.style.display = "none";
+        notOnChatPageDiv.style.display = "block";
       }
-      updateChatControlsState(); // Set initial state of chat controls
-    });
+
+      updateChatControlsState();
+    } catch (error) {
+      console.error("Gippity Pruner Error:", error);
+      notOnChatPageDiv.innerHTML =
+        "<p>An error occurred. Please reload the tab and try again.</p>";
+      notOnChatPageDiv.style.display = "block";
+      chatSpecificSettingsDiv.style.display = "none";
+    }
+  }
+
+  // --- Event Listeners (Updated with async/await) ---
+
+  toggleEnabled.addEventListener("change", async () => {
+    await browser.storage.sync.set({ enabled: toggleEnabled.checked });
   });
 
-  // --- Event Listeners ---
-
-  toggleEnabled.addEventListener("change", () => {
-    chrome.storage.sync.set({ enabled: toggleEnabled.checked });
-  });
-
-  globalKeepLastInput.addEventListener("input", () => {
+  globalKeepLastInput.addEventListener("input", async () => {
     const val = parseInt(globalKeepLastInput.value);
     if (!isNaN(val) && val > 0) {
-      globalSettings.keepLast = val; // Update local cache
-      chrome.storage.sync.set({ globalKeepLast: val });
+      await browser.storage.sync.set({ globalKeepLast: val });
     }
   });
 
-  useGlobalCheckbox.addEventListener("change", () => {
+  useGlobalCheckbox.addEventListener("change", async () => {
     if (!currentChatId) return;
-    updateChatControlsState();
 
-    chrome.storage.sync.get(["chats"], (res) => {
-      const chats = res.chats || {};
-      if (useGlobalCheckbox.checked) {
-        // User wants to use global setting, so remove the specific one
-        delete chats[currentChatId];
-      } else {
-        // User wants a specific setting, so create one defaulting to global values
-        chats[currentChatId] = {
-          enabled: globalSettings.enabled,
-          keepLast: globalSettings.keepLast,
-        };
-        // Update UI to reflect these new defaults
-        chatEnabledCheckbox.checked = chats[currentChatId].enabled;
-        chatKeepLastInput.value = chats[currentChatId].keepLast;
-        updateChatControlsState(); // Re-check state
-      }
-      chrome.storage.sync.set({ chats });
-    });
+    const data = await browser.storage.sync.get([
+      "chats",
+      "globalKeepLast",
+      "enabled",
+    ]);
+    const chats = data.chats || {};
+
+    if (useGlobalCheckbox.checked) {
+      delete chats[currentChatId];
+    } else {
+      // When unchecking "Use global", create a specific setting based on current global values
+      chats[currentChatId] = {
+        enabled: data.enabled ?? true,
+        keepLast: data.globalKeepLast ?? 5,
+      };
+      chatEnabledCheckbox.checked = chats[currentChatId].enabled;
+      chatKeepLastInput.value = chats[currentChatId].keepLast;
+    }
+    await browser.storage.sync.set({ chats });
+    updateChatControlsState();
   });
 
-  chatEnabledCheckbox.addEventListener("change", () => {
+  chatEnabledCheckbox.addEventListener("change", async () => {
     if (!currentChatId || useGlobalCheckbox.checked) return;
+
+    const { chats = {} } = await browser.storage.sync.get("chats");
+    if (chats[currentChatId]) {
+      chats[currentChatId].enabled = chatEnabledCheckbox.checked;
+      await browser.storage.sync.set({ chats });
+    }
     updateChatControlsState();
-
-    const isEnabled = chatEnabledCheckbox.checked;
-    chrome.storage.sync.get("chats", (res) => {
-      const chats = res.chats || {};
-      let chatSetting = chats[currentChatId];
-
-      if (typeof chatSetting !== 'object' || chatSetting === null) {
-        chatSetting = {
-          keepLast: (typeof chatSetting === 'number') ? chatSetting : globalSettings.keepLast,
-          enabled: isEnabled,
-        };
-      } else {
-        chatSetting.enabled = isEnabled;
-      }
-      chats[currentChatId] = chatSetting;
-      chrome.storage.sync.set({ chats });
-    });
   });
 
-  chatKeepLastInput.addEventListener("input", () => {
-    if (!currentChatId || useGlobalCheckbox.checked || !chatEnabledCheckbox.checked) return;
+  chatKeepLastInput.addEventListener("input", async () => {
+    if (
+      !currentChatId ||
+      useGlobalCheckbox.checked ||
+      !chatEnabledCheckbox.checked
+    )
+      return;
+
     const val = parseInt(chatKeepLastInput.value);
     if (!isNaN(val) && val > 0) {
-      chrome.storage.sync.get("chats", (res) => {
-        const chats = res.chats || {};
-        let chatSetting = chats[currentChatId];
-
-        if (typeof chatSetting !== 'object' || chatSetting === null) {
-          chatSetting = { keepLast: val, enabled: true };
-        } else {
-          chatSetting.keepLast = val;
-        }
-        chats[currentChatId] = chatSetting;
-        chrome.storage.sync.set({ chats });
-      });
+      const { chats = {} } = await browser.storage.sync.get("chats");
+      if (chats[currentChatId]) {
+        chats[currentChatId].keepLast = val;
+        await browser.storage.sync.set({ chats });
+      }
     }
   });
+
+  // Start the popup logic
+  initializePopup();
 });
+
