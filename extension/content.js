@@ -27,30 +27,6 @@ const PIN_ICON_SVG = `
   </g>
 </svg>`;
 
-const LOADER_STYLE_ID = "gippity-pruner-loader-style";
-const LOADER_CSS = `
-    .gp-loader {
-        position: absolute;
-        top: 40%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 50px;
-        height: 50px;
-        border: 5px solid #f3f3f3;
-        border-top: 5px solid #3498db;
-        border-radius: 50%;
-        animation: gp-spin 1s linear infinite;
-        z-index: 1000;
-    }
-    /* This rule now directly targets the chat container to hide it */
-    div[role="presentation"].composer-parent .overflow-y-auto.gp-hidden-container {
-        visibility: hidden !important;
-    }
-    @keyframes gp-spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-`;
 
 let currentUrl = location.href;
 let initializationInterval; // Used to find the chat messages on load/navigation
@@ -340,22 +316,11 @@ function revealChat() {
     chatContainer.classList.remove("gp-hidden-container");
   }
 
-  // Clean up the styles we injected
-  const styleTag = document.getElementById(LOADER_STYLE_ID);
-  if (styleTag) styleTag.remove();
 }
 
 function initializePruner() {
   if (initializationInterval) clearInterval(initializationInterval);
   if (messageObserver) messageObserver.disconnect();
-
-  const oldStyle = document.getElementById(LOADER_STYLE_ID);
-  if (oldStyle) oldStyle.remove();
-  
-  const style = document.createElement('style');
-  style.id = LOADER_STYLE_ID;
-  style.textContent = LOADER_CSS;
-  document.documentElement.appendChild(style);
 
   const spinner = document.createElement('div');
   spinner.className = 'gp-loader';
