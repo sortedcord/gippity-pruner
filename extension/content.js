@@ -7,7 +7,6 @@ let settings = {
   pinnedMessages: [],
 };
 
-// Add this near the top with your other constants
 const PIN_BUTTON_STYLE = {
   position: "absolute",
   top: "-9px",
@@ -27,6 +26,31 @@ const PIN_ICON_SVG = `
     <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
   </g>
 </svg>`;
+
+const LOADER_STYLE_ID = "gippity-pruner-loader-style";
+const LOADER_CSS = `
+    .gp-loader {
+        position: absolute;
+        top: 40%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        animation: gp-spin 1s linear infinite;
+        z-index: 1000;
+    }
+    /* This rule now directly targets the chat container to hide it */
+    div[role="presentation"].composer-parent .overflow-y-auto.gp-hidden-container {
+        visibility: hidden !important;
+    }
+    @keyframes gp-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
 
 let currentUrl = location.href;
 let initializationInterval; // Used to find the chat messages on load/navigation
@@ -227,37 +251,39 @@ function pruneMessages() {
   ensurePinnedAreVisible();
   const keepLast = getKeepLastCount();
   if (keepLast === Infinity) {
-    showAllMessages();
-    return;
+      showAllMessages();
+      return;
   }
 
   let allMessages = document.querySelectorAll(
-    `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
+      `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
   );
   lastPrunedMessageCount = allMessages.length;
 
-  // Separate pinned messages from the ones that can be pruned
   const unpinnableMessages = Array.from(allMessages).filter(
-    (msg) => msg.dataset.isPinned !== "true",
+      (msg) => msg.dataset.isPinned !== "true",
   );
 
   const totalToShow = keepLast + additionallyShownCount;
 
-  // make all unpinnable messages visible to calculate what to hide.
   unpinnableMessages.forEach((msg) => {
-    if (msg.style.display === "none") msg.style.display = "";
+      if (msg.style.display === "none") msg.style.display = "";
   });
 
   if (unpinnableMessages.length <= totalToShow) {
-    createOrUpdateButton(0, keepLast);
-    return;
+      createOrUpdateButton(0, keepLast);
+      requestAnimationFrame(revealChat);
+      return;
   }
 
   const toHideCount = unpinnableMessages.length - totalToShow;
   for (let i = 0; i < toHideCount; i++) {
-    if (unpinnableMessages[i]) unpinnableMessages[i].style.display = "none";
+      if (unpinnableMessages[i]) unpinnableMessages[i].style.display = "none";
   }
   createOrUpdateButton(toHideCount, keepLast);
+  
+  // Wait for the next repaint cycle to reveal the chat
+  requestAnimationFrame(revealChat);
 }
 
 function showAllMessages() {
@@ -269,6 +295,7 @@ function showAllMessages() {
   if (loadMoreButton && loadMoreButton.parentElement) {
     loadMoreButton.remove();
   }
+  requestAnimationFrame(revealChat);
 }
 
 function observeMessages(chatContainer) {
@@ -302,40 +329,85 @@ function observeMessages(chatContainer) {
   );
 }
 
+function revealChat() {
+  // Remove the spinner
+  const spinner = document.querySelector(".gp-loader");
+  if (spinner) spinner.remove();
+
+  // Reveal the chat container
+  const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
+  if (chatContainer) {
+    chatContainer.classList.remove("gp-hidden-container");
+  }
+
+  // Clean up the styles we injected
+  const styleTag = document.getElementById(LOADER_STYLE_ID);
+  if (styleTag) styleTag.remove();
+}
+
 function initializePruner() {
   if (initializationInterval) clearInterval(initializationInterval);
   if (messageObserver) messageObserver.disconnect();
 
+  const oldStyle = document.getElementById(LOADER_STYLE_ID);
+  if (oldStyle) oldStyle.remove();
+  
+  const style = document.createElement('style');
+  style.id = LOADER_STYLE_ID;
+  style.textContent = LOADER_CSS;
+  document.documentElement.appendChild(style);
+
+  const spinner = document.createElement('div');
+  spinner.className = 'gp-loader';
+
+  const composerParent = document.querySelector('div[role="presentation"].composer-parent');
+  if (composerParent) {
+      composerParent.style.position = 'relative';
+      composerParent.appendChild(spinner);
+      const chatContainer = composerParent.querySelector('.overflow-y-auto');
+      if (chatContainer) {
+          chatContainer.classList.add('gp-hidden-container');
+      }
+  }
+
   additionallyShownCount = 0;
   lastPrunedMessageCount = 0;
 
+  // --- START: POLLING LOGIC ---
+  let messageCount = 0;
+  let stableCount = 0;
+  const stabilityThreshold = 3;
+
   initializationInterval = setInterval(() => {
-    const firstMessage =
-      document.querySelector(MESSAGE_SELECTOR) ||
-      document.querySelector(FALLBACK_SELECTOR);
-    if (firstMessage) {
-      clearInterval(initializationInterval);
-      console.log("[Gippity Pruner] Chat messages detected. Initializing...");
+      const currentMessages = document.querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`);
+      // Also check for the container inside the loop ---
+      const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
 
-      // Add pin buttons to all existing messages on load
-      document
-        .querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`)
-        .forEach(addPinButton);
+      // need both messages AND the container to be ready
+      if (currentMessages.length > 0 && chatContainer) {
+          if (currentMessages.length > messageCount) {
+              messageCount = currentMessages.length;
+              stableCount = 0;
+              console.log(`[Gippity Pruner] Loading messages... Found ${messageCount}`);
+          } else {
+              stableCount++;
+          }
+      }
 
-      setTimeout(() => {
-        pruneMessages();
-        const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
-        if (chatContainer) {
+      if (stableCount >= stabilityThreshold) {
+          clearInterval(initializationInterval);
+          console.log(`[Gippity Pruner] Message loading complete with ${messageCount} messages. Initializing...`);
+
+          currentMessages.forEach(addPinButton);
+
+          pruneMessages();
+          
+          // the container exists, so use it directly.
           observeMessages(chatContainer);
-        } else {
-          console.error(
-            "[Gippity Pruner] Could not find chat container to observe.",
-          );
-        }
-      }, 250);
-    }
-  }, 500);
+      }
+  }, 200);
 }
+
 
 // --- Event Listeners ---
 chrome.storage.sync.get(
@@ -356,12 +428,16 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   pruneMessages();
 });
 
-new MutationObserver(() => {
+const navigationObserver = new MutationObserver(() => {
   if (location.href !== currentUrl) {
-    currentUrl = location.href;
-    console.log(
-      `[Gippity Pruner] Navigated to: ${currentUrl}. Re-initializing.`,
-    );
-    initializePruner();
+      currentUrl = location.href;
+      console.log(`[Gippity Pruner] Navigated to: ${currentUrl}. Re-initializing.`);
+      initializePruner();
   }
-}).observe(document.body, { childList: true, subtree: true });
+});
+
+// Start observing the document body for changes
+navigationObserver.observe(document.body, {
+  childList: true,
+  subtree: true
+});
