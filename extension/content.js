@@ -1,3 +1,20 @@
+/* ===== BOOTSTRAP: ensure `browser` exists even without the polyfill ===== */
+(() => {
+  const g = globalThis;
+  if (!g.browser && typeof g.chrome !== 'undefined') {
+    g.browser = {
+      storage: {
+        sync: {
+          get: (keys) => new Promise((resolve) => chrome.storage.sync.get(keys, resolve)),
+          set: (obj)  => new Promise((resolve) => chrome.storage.sync.set(obj, resolve)),
+        },
+        onChanged: chrome.storage.onChanged,
+      }
+    };
+  }
+})();
+/* ======================================================================= */
+
 // --- Configuration & State ---
 
 let settings = {
@@ -338,22 +355,25 @@ function initializePruner() {
 }
 
 // --- Event Listeners ---
-chrome.storage.sync.get(
-  ["enabled", "globalKeepLast", "chats", "pinnedMessages"],
-  (res) => {
+
+browser.storage.sync.get(['enabled', 'globalKeepLast', 'chats']).then((res) => {
     settings = { ...settings, ...res };
     initializePruner();
   },
 );
 
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace !== "sync") return;
-  for (let key in changes) {
-    settings[key] = changes[key].newValue;
-  }
-  console.log("[Gippity Pruner] Settings changed, re-applying pruning.");
-  additionallyShownCount = 0;
-  pruneMessages();
+browser.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace !== 'sync') return;
+    let settingsChanged = false;
+    for (let key in changes) {
+        settings[key] = changes[key].newValue;
+        settingsChanged = true;
+    }
+    if (settingsChanged) {
+        console.log('[Gippity Pruner] Settings changed, re-applying pruning.');
+        additionallyShownCount = 0; // Reset on settings change
+        pruneMessages();
+    }
 });
 
 new MutationObserver(() => {
