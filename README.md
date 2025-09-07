@@ -14,15 +14,26 @@ ChatGPT tends to get really slow and unresponsive in long conversations. This ex
 
 Since ChatGPT still stores the full conversation history, you can still disable the extension and see all your messages, and also get the full context in your responses.
 
-Download it from the Chrome Web Store (_Firefox version WIP_) :
+### Downloads
 
-[![Chrome Web Store](https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png)](https://chromewebstore.google.com/detail/flcfolhcheneokpdnacnngfjmgccbfop?utm_source=item-share-cb)
+<table>
+  <tr>
+  <td>
+  <a href="https://chromewebstore.google.com/detail/flcfolhcheneokpdnacnngfjmgccbfop?utm_source=item-share-cb">
+   <img src="https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png" alt="Chrome Web Store">
+  </a>
+ 
+  </td>
+  <td>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/gippity-pruner/">
+   <img src="assets/firefox-addons-badge.jpg" alt="Chrome Web Store">
+  </td>
+  </tr>
+</table>
 
 Here's a quick video showing how to install and use the extension:
 
-[![Watch the video](assets/yt_thumb.png)](https://youtu.be/JqrwuydtBX8)
-
----
+## [![Watch the video](assets/yt_thumb.png)](https://youtu.be/JqrwuydtBX8)
 
 ## Installation
 
@@ -41,6 +52,35 @@ As of now, the extension is only available for chromium based browsers and is ba
 I guess, this is more of a response to openAI not fixing such a simple design flaw in their product - no lazy loading.
 
 ## Contributing
+
+### Building from source
+
+To build the extension from source, you need to have Node.js and npm installed. Then, follow these steps:
+
+1. Clone the repository:
+   ```bash
+   git clone git@github.com:sortedcord/gippity-pruner.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+    cd gippity-pruner
+    ```
+3. Clean the project:
+   ```bash
+   npm run clean
+   ```
+4. Build the extension for the desired browser:
+   - For Chrome:
+     ```bash
+     npm run build:chrome
+     ```
+   - For Firefox:
+     ```bash
+     npm run build:firefox
+     ```
+5. Load the extension in your browser:
+
+    - You can then load the extension in your browser by going to the extensions page and enabling "Developer mode". Then, click on "Load unpacked" and select the `extension` folder inside the project directory.
 
 If you want to contribute to the project, feel free to open an issue or a pull request. Any contributions are welcome!
 
