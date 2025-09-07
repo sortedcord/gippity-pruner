@@ -25,8 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
    * @returns {string|null} The chat ID or null if not found.
    */
   function getChatIdFromUrl(url) {
-    const match = url.match(/chat(?:gpt)?.com\/(?:c|chat)\/([a-zA-Z0-9-]+)/);
-    return match ? match[1] : null;
+    const match = url.match(/chat(?:gpt)?.com\/(?:g\/[a-zA-Z0-9-]+\/)?(c|chat)\/([a-zA-Z0-9-]+)/);
+    return match ? match[2] : null; 
   }
 
   /**
