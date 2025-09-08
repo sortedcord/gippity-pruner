@@ -132,37 +132,97 @@ function addPinButton(messageElement) {
   }
 }
 
+function showPinnedMessagesPage() {
+  const mainContentArea = document.querySelector('main');
+  if (!mainContentArea) return;
+
+  // Hide the main chat view
+  const chatView = mainContentArea.querySelector(':scope > .flex-1');
+  if (chatView) chatView.style.display = 'none';
+  
+  // Remove any old page if it exists
+  const oldPage = document.getElementById('gippity-pinned-page');
+  if (oldPage) oldPage.remove();
+
+  // Create our custom page container
+  const page = document.createElement('div');
+  page.id = 'gippity-pinned-page';
+  page.style.cssText = 'width: 100%; max-width: 48rem; margin: 0 auto; padding: 20px; color: var(--text-primary);';
+  page.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h1 style="font-size: 24px; margin-bottom: 20px;">Pinned Messages</h1>
+          <button id="gippity-close-pinned" style="padding: 8px 16px; border-radius: 8px; background-color: var(--token-bg-surface-secondary); border: 1px solid var(--token-border-light);">Close</button>
+      </div>
+      <div id="gippity-pinned-list">Loading...</div>
+  `;
+  
+  mainContentArea.appendChild(page);
+
+  // Add the close functionality
+  document.getElementById('gippity-close-pinned').onclick = () => {
+      page.remove();
+      if (chatView) chatView.style.display = 'flex'; // Restore the chat view
+  };
+
+  // Load and display the pinned messages from storage
+  chrome.storage.sync.get('pinnedMessages', ({ pinnedMessages }) => {
+      const listContainer = document.getElementById('gippity-pinned-list');
+      if (!pinnedMessages || pinnedMessages.length === 0) {
+          listContainer.innerHTML = '<p>You have no pinned messages.</p>';
+          return;
+      }
+
+      listContainer.innerHTML = ''; // Clear "Loading..."
+      pinnedMessages.forEach(pin => {
+          const item = document.createElement('a');
+          item.href = `https://chatgpt.com/c/${pin.chatId}`; // Link back to the original chat
+          
+          item.style.cssText = 'display: block; padding: 15px; border: 1px solid var(--token-border-light); border-radius: 8px; margin-bottom: 10px; text-decoration: none; color: inherit; background-color: var(--token-main-surface-primary);';
+          item.innerHTML = `
+              <div style="font-weight: bold; margin-bottom: 5px; color: var(--text-primary);">${pin.chatTitle}</div>
+              <p style="font-style: italic; color: var(--text-secondary); margin: 0;">"${pin.snippet}..."</p>
+          `;
+          listContainer.appendChild(item);
+      });
+  });
+}
+
 function togglePin(messageElement) {
   const turnId = messageElement.getAttribute("data-turn-id");
   if (!turnId) return;
+
+  // Get all the necessary context for the pin
+  const chatId = getChatIdFromUrl(window.location.href);
+  const chatTitle = document.title;
+  const snippet = messageElement.innerText.substring(0, 120); // Get first 120 chars as a preview
 
   const isPinned = messageElement.dataset.isPinned === "true";
   const pinButton = messageElement.querySelector(".gippity-pin-button");
 
   if (isPinned) {
-    // Unpin it
-    messageElement.dataset.isPinned = "false";
-    settings.pinnedMessages = settings.pinnedMessages.filter(
-      (id) => id !== turnId,
-    );
-    pinButton.style.opacity = "0.5";
-    pinButton.style.color = "currentColor";
+      // Unpin by filtering out the message with the matching turnId
+      messageElement.dataset.isPinned = "false";
+      settings.pinnedMessages = settings.pinnedMessages.filter(
+          (p) => p.turnId !== turnId,
+      );
+      pinButton.style.opacity = "0.5";
+      pinButton.style.color = "currentColor";
   } else {
-    // Pin it
-    messageElement.dataset.isPinned = "true";
-    if (!settings.pinnedMessages) settings.pinnedMessages = [];
-    settings.pinnedMessages.push(turnId);
-    pinButton.style.opacity = "1.0";
-    pinButton.style.color = "#3C82F6";
+      // Pin by adding a new object to the array
+      messageElement.dataset.isPinned = "true";
+      if (!settings.pinnedMessages) settings.pinnedMessages = [];
+      
+      const newPin = { turnId, chatId, chatTitle, snippet };
+      settings.pinnedMessages.push(newPin);
+
+      pinButton.style.opacity = "1.0";
+      pinButton.style.color = "#3C82F6";
   }
 
-  // Save the updated list of pinned messages
+  // Save the updated array to storage
   chrome.storage.sync.set({ pinnedMessages: settings.pinnedMessages });
-
-  // Re-run pruning immediately to reflect the change
   pruneMessages();
 }
-
 function getChatIdFromUrl(url) {
   const match = url.match(/chat(?:gpt)?.com\/(?:c|chat)\/([a-zA-Z0-9-]+)/);
   return match ? match[1] : null;
@@ -230,6 +290,83 @@ function createOrUpdateButton(hiddenCount, loadIncrement) {
     pruneMessages();
   };
   injectionContainer.prepend(loadMoreButton);
+}
+
+function injectPinnedMessagesButton() {
+  // Stop if the button already exists
+  if (document.querySelector('#gippity-pinned-btn')) {
+      return;
+  }
+
+  // Find the "Explore GPTs" button to use as an anchor
+  const gptsButton = document.querySelector('a[data-testid="explore-gpts-button"]');
+  if (!gptsButton) {
+      // If the anchor isn't found, we can't add the button yet.
+      return;
+  }
+
+  // Create the button from scratch
+  const pinnedBtn = document.createElement('a');
+  pinnedBtn.id = 'gippity-pinned-btn';
+  pinnedBtn.href = '#';
+  pinnedBtn.className = "group __menu-item hoverable gap-1.5";
+  pinnedBtn.tabIndex = 0;
+
+  const innerDiv = document.createElement('div');
+  innerDiv.className = "flex min-w-0 items-center gap-1.5";
+
+  const iconContainer = document.createElement('div');
+  iconContainer.className = "flex items-center justify-center group-disabled:opacity-50 group-data-disabled:opacity-50 icon";
+  
+  const svgIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svgIcon.setAttribute('width', '20');
+  svgIcon.setAttribute('height', '20');
+  svgIcon.setAttribute('viewBox', '0 0 20 20');
+  svgIcon.setAttribute('fill', 'currentColor');
+  svgIcon.innerHTML = `<path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"></path>`;
+
+  const textContainer = document.createElement('div');
+  textContainer.className = "flex min-w-0 grow items-center gap-2.5 group-data-no-contents-gap:gap-0";
+  
+  const textElement = document.createElement('div');
+  textElement.className = "truncate";
+  textElement.textContent = "Pinned Messages";
+
+  // Assemble the button's structure
+  iconContainer.appendChild(svgIcon);
+  textContainer.appendChild(textElement);
+  innerDiv.appendChild(iconContainer);
+  innerDiv.appendChild(textContainer);
+  pinnedBtn.appendChild(innerDiv);
+
+  // Add the click functionality
+  pinnedBtn.onclick = (e) => {
+      e.preventDefault();
+      // This is where you would call the function to show your pinned messages page
+      showPinnedMessagesPage(); 
+  };
+  
+  // Insert the new button into the sidebar
+  gptsButton.parentNode.insertBefore(pinnedBtn, gptsButton.nextSibling);
+  
+  console.log('[Gippity Pruner] "Pinned Messages" button injected into sidebar.');
+}
+
+function setupSidebarObserver() {
+  const sidebarObserver = new MutationObserver((mutations, observer) => {
+      const gptsButton = document.querySelector('a[data-testid="explore-gpts-button"]');
+      if (gptsButton) {
+          injectPinnedMessagesButton();
+          // Once we've successfully added the button, we can stop observing.
+          observer.disconnect(); 
+      }
+  });
+
+  // Start watching the page for when the sidebar is added
+  sidebarObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+  });
 }
 
 function ensurePinnedAreVisible() {
@@ -385,3 +522,7 @@ new MutationObserver(() => {
     initializePruner();
   }
 }).observe(document.body, { childList: true, subtree: true });
+
+
+// Start the process of observing for the sidebar to appear.
+setupSidebarObserver();
