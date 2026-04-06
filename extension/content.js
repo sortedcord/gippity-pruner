@@ -6,7 +6,7 @@
       storage: {
         sync: {
           get: (keys) => new Promise((resolve) => chrome.storage.sync.get(keys, resolve)),
-          set: (obj)  => new Promise((resolve) => chrome.storage.sync.set(obj, resolve)),
+          set: (obj) => new Promise((resolve) => chrome.storage.sync.set(obj, resolve)),
         },
         onChanged: chrome.storage.onChanged,
       }
@@ -53,9 +53,30 @@ let additionallyShownCount = 0; // Tracks how many extra messages are shown
 let lastPrunedMessageCount = 0; // Tracks message count to detect new messages
 
 // --- Selectors (Updated) ---
-const CHAT_CONTAINER_SELECTOR = 'div[role="presentation"] .overflow-y-auto';
-const MESSAGE_SELECTOR = "article[data-turn-id]";
-const FALLBACK_SELECTOR = 'article[data-testid^="conversation-turn-"]';
+const CHAT_CONTAINER_SELECTORS = [
+  'div[role="presentation"] .overflow-y-auto',
+  'main div.overflow-y-auto',
+  'main',
+];
+const MESSAGE_SELECTORS = [
+  'section[data-turn-id]',
+  'article[data-turn-id]',
+  'section[data-testid^="conversation-turn-"]',
+  'article[data-testid^="conversation-turn-"]',
+];
+const MESSAGE_QUERY = MESSAGE_SELECTORS.join(', ');
+
+function getMessageElements() {
+  return Array.from(document.querySelectorAll(MESSAGE_QUERY));
+}
+
+function findChatContainer(firstMessage) {
+  for (const selector of CHAT_CONTAINER_SELECTORS) {
+    const container = document.querySelector(selector);
+    if (container) return container;
+  }
+  return firstMessage?.parentElement || document.body;
+}
 
 // --- Core Functions ---
 
@@ -80,6 +101,11 @@ function addPinButton(messageElement) {
     targetContainer = messageElement.querySelector(
       ".user-message-bubble-color",
     );
+    if (!targetContainer) {
+      targetContainer = messageElement.querySelector(
+        'div[data-message-author-role="user"]',
+      );
+    }
   }
 
   if (
@@ -195,9 +221,7 @@ function debounce(func, wait) {
 }
 
 function createOrUpdateButton(hiddenCount, loadIncrement) {
-  const firstMessage =
-    document.querySelector(MESSAGE_SELECTOR) ||
-    document.querySelector(FALLBACK_SELECTOR);
+  const firstMessage = getMessageElements()[0];
   const injectionContainer = firstMessage?.parentElement;
 
   if (loadMoreButton && loadMoreButton.parentElement) {
@@ -235,7 +259,7 @@ function createOrUpdateButton(hiddenCount, loadIncrement) {
 function ensurePinnedAreVisible() {
   const pinnedIds = settings.pinnedMessages || [];
   pinnedIds.forEach((id) => {
-    const el = document.querySelector(`article[data-turn-id="${id}"]`);
+    const el = document.querySelector(`[data-turn-id="${id}"]`);
     if (el) el.style.display = "";
   });
 }
@@ -248,9 +272,7 @@ function pruneMessages() {
     return;
   }
 
-  let allMessages = document.querySelectorAll(
-    `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
-  );
+  const allMessages = getMessageElements();
   lastPrunedMessageCount = allMessages.length;
 
   // Separate pinned messages from the ones that can be pruned
@@ -278,11 +300,9 @@ function pruneMessages() {
 }
 
 function showAllMessages() {
-  document
-    .querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`)
-    .forEach((msg) => {
-      msg.style.display = "";
-    });
+  getMessageElements().forEach((msg) => {
+    msg.style.display = "";
+  });
   if (loadMoreButton && loadMoreButton.parentElement) {
     loadMoreButton.remove();
   }
@@ -293,9 +313,7 @@ function observeMessages(chatContainer) {
 
   // Create the debounced function that handles pruning.
   const debouncedPrune = debounce(() => {
-    const currentMessageCount = document.querySelectorAll(
-      `${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`,
-    ).length;
+    const currentMessageCount = getMessageElements().length;
     if (currentMessageCount > lastPrunedMessageCount) {
       additionallyShownCount = 0;
     }
@@ -305,9 +323,7 @@ function observeMessages(chatContainer) {
   // This observer will fire on any change in the chat container.
   messageObserver = new MutationObserver(() => {
     // 1. Ensure all messages, especially new ones, have a pin button.
-    document
-      .querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`)
-      .forEach(addPinButton);
+    getMessageElements().forEach(addPinButton);
 
     // 2. Call the debounced function to handle pruning.
     debouncedPrune();
@@ -327,21 +343,17 @@ function initializePruner() {
   lastPrunedMessageCount = 0;
 
   initializationInterval = setInterval(() => {
-    const firstMessage =
-      document.querySelector(MESSAGE_SELECTOR) ||
-      document.querySelector(FALLBACK_SELECTOR);
+    const firstMessage = getMessageElements()[0];
     if (firstMessage) {
       clearInterval(initializationInterval);
       console.log("[Gippity Pruner] Chat messages detected. Initializing...");
 
       // Add pin buttons to all existing messages on load
-      document
-        .querySelectorAll(`${MESSAGE_SELECTOR}, ${FALLBACK_SELECTOR}`)
-        .forEach(addPinButton);
+      getMessageElements().forEach(addPinButton);
 
       setTimeout(() => {
         pruneMessages();
-        const chatContainer = document.querySelector(CHAT_CONTAINER_SELECTOR);
+        const chatContainer = findChatContainer(firstMessage);
         if (chatContainer) {
           observeMessages(chatContainer);
         } else {
@@ -357,23 +369,23 @@ function initializePruner() {
 // --- Event Listeners ---
 
 browser.storage.sync.get(['enabled', 'globalKeepLast', 'chats']).then((res) => {
-    settings = { ...settings, ...res };
-    initializePruner();
-  },
+  settings = { ...settings, ...res };
+  initializePruner();
+},
 );
 
 browser.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace !== 'sync') return;
-    let settingsChanged = false;
-    for (let key in changes) {
-        settings[key] = changes[key].newValue;
-        settingsChanged = true;
-    }
-    if (settingsChanged) {
-        console.log('[Gippity Pruner] Settings changed, re-applying pruning.');
-        additionallyShownCount = 0; // Reset on settings change
-        pruneMessages();
-    }
+  if (namespace !== 'sync') return;
+  let settingsChanged = false;
+  for (let key in changes) {
+    settings[key] = changes[key].newValue;
+    settingsChanged = true;
+  }
+  if (settingsChanged) {
+    console.log('[Gippity Pruner] Settings changed, re-applying pruning.');
+    additionallyShownCount = 0; // Reset on settings change
+    pruneMessages();
+  }
 });
 
 new MutationObserver(() => {
